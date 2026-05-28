@@ -2,7 +2,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { AuthProvider } from "@/components/layout/AuthProvider";
 import { createClient } from "@/lib/supabase/server";
-import prisma from "@/lib/prisma/client";
+import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
 
 export default async function DashboardLayout({
