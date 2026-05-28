@@ -1,6 +1,6 @@
 const { PrismaClient } = require('@prisma/client')
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient({})
 
 async function main() {
   // Bikin tenant demo
@@ -71,7 +71,7 @@ async function main() {
   await prisma.message.create({
     data: {
       conversationId: conv.id,
-      direction: 'OUTBOUND_AI',
+      direction: 'OUTBOUND',
       content: 'Halo Budi! Harga produk A adalah Rp 100.000. Ada yang bisa saya bantu?',
       waMessageId: 'msg-12346',
     },
