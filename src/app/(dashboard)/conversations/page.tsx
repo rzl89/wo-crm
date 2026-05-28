@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { mockConversations, type ConvStatus } from "@/lib/mock-data";
 import { formatPhone, relativeTime, getInitials } from "@/lib/utils";
 import { StageBadge, ConvStatusBadge } from "@/components/shared/Badges";
+import { getConversations } from "@/app/actions/crm";
 import {
   Search,
   Send,
@@ -29,28 +30,40 @@ const CONV_TABS: { label: string; icon: string; value: ConvStatus | "ALL" }[] = 
 
 export default function ConversationsPage() {
   const [activeTab, setActiveTab] = useState<ConvStatus | "ALL">("ALL");
-  const [selectedId, setSelectedId] = useState<string>(mockConversations[0]?.id || "");
+  const [selectedId, setSelectedId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [newMessage, setNewMessage] = useState("");
+  const [conversationsData, setConversationsData] = useState<any[]>(mockConversations);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const filtered = mockConversations.filter((c) => {
+  useEffect(() => {
+    getConversations().then((data) => {
+      setConversationsData(data as any[]);
+      if (data.length > 0 && !selectedId) {
+        setSelectedId(data[0].id);
+      }
+    });
+  }, []);
+
+  const filtered = conversationsData.filter((c) => {
     if (activeTab !== "ALL" && c.status !== activeTab) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
+      const contactName = c.name || c.lead?.contactName || "";
+      const phoneNumber = c.phone || c.lead?.phoneNumber || "";
       return (
-        c.lead.contactName.toLowerCase().includes(q) ||
-        c.lead.phoneNumber.includes(q)
+        contactName.toLowerCase().includes(q) ||
+        phoneNumber.includes(q)
       );
     }
     return true;
   });
 
-  const selected = mockConversations.find((c) => c.id === selectedId);
+  const selected = conversationsData.find((c) => c.id === selectedId);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [selectedId]);
+  }, [selectedId, selected?.messages?.length]);
 
   return (
     <div className="animate-fade-in" style={{ height: "calc(100vh - var(--header-height) - 48px)" }}>
@@ -67,8 +80,8 @@ export default function ConversationsPage() {
               {CONV_TABS.map((tab) => {
                 const count =
                   tab.value === "ALL"
-                    ? mockConversations.length
-                    : mockConversations.filter((c) => c.status === tab.value).length;
+                    ? conversationsData.length
+                    : conversationsData.filter((c) => c.status === tab.value).length;
                 return (
                   <button
                     key={tab.value}
@@ -100,7 +113,9 @@ export default function ConversationsPage() {
 
           {/* List */}
           <div className="flex-1 overflow-y-auto">
-            {filtered.map((conv) => (
+            {filtered.map((conv) => {
+              const contactName = conv.name || conv.lead?.contactName || "Unknown";
+              return (
               <button
                 key={conv.id}
                 onClick={() => setSelectedId(conv.id)}
@@ -113,7 +128,7 @@ export default function ConversationsPage() {
                 {/* Avatar */}
                 <div className="relative flex-shrink-0">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-primary-500)] to-[var(--color-primary-700)] flex items-center justify-center text-white text-xs font-bold">
-                    {getInitials(conv.lead.contactName)}
+                    {getInitials(contactName)}
                   </div>
                   {conv.status === "WAITING_CS" && (
                     <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white badge-bounce" />
@@ -123,26 +138,26 @@ export default function ConversationsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-[var(--color-text)] truncate">
-                      {conv.lead.contactName}
+                      {contactName}
                     </p>
                     <span className="text-[10px] text-[var(--color-muted)] flex-shrink-0">
-                      {relativeTime(conv.lastMessageAt)}
+                      {relativeTime(conv.time || conv.lastMessageAt)}
                     </span>
                   </div>
                   <p className="text-xs text-[var(--color-muted)] truncate mt-0.5">
-                    {conv.lastMessagePreview}
+                    {conv.lastMessage || conv.lastMessagePreview}
                   </p>
                   <div className="flex items-center justify-between mt-1.5">
                     <ConvStatusBadge status={conv.status} />
-                    {conv.unreadCount > 0 && (
+                    {(conv.unread || conv.unreadCount) > 0 && (
                       <span className="min-w-[18px] h-[18px] bg-[var(--color-primary-600)] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
-                        {conv.unreadCount}
+                        {conv.unread || conv.unreadCount}
                       </span>
                     )}
                   </div>
                 </div>
               </button>
-            ))}
+            )})}
             {filtered.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12">
                 <MessageSquare className="w-10 h-10 text-gray-200 mb-2" />
@@ -160,14 +175,14 @@ export default function ConversationsPage() {
               <div className="px-5 py-3 border-b border-[var(--color-border)] flex items-center justify-between bg-white">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[var(--color-primary-500)] to-[var(--color-primary-700)] flex items-center justify-center text-white text-xs font-bold">
-                    {getInitials(selected.lead.contactName)}
+                    {getInitials(selected.name || selected.lead?.contactName || "")}
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-[var(--color-text)]">
-                      {selected.lead.contactName}
+                      {selected.name || selected.lead?.contactName}
                     </p>
                     <p className="text-[11px] text-[var(--color-muted)]">
-                      {formatPhone(selected.lead.phoneNumber)}
+                      {formatPhone(selected.phone || selected.lead?.phoneNumber || "")}
                     </p>
                   </div>
                 </div>
@@ -185,15 +200,15 @@ export default function ConversationsPage() {
                   <div className="flex-1 h-px bg-[var(--color-border)]" />
                 </div>
 
-                {selected.messages.map((msg) => (
+                {selected.messages?.map((msg: any) => (
                   <div
                     key={msg.id}
-                    className={`flex ${msg.direction === "OUTBOUND" ? "justify-end" : "justify-start"}`}
+                    className={`flex ${msg.direction === "OUTBOUND" || msg.direction === "OUTBOUND_AI" ? "justify-end" : "justify-start"}`}
                   >
                     <div className={`max-w-[70%] px-4 py-3 shadow-sm ${
-                      msg.direction === "OUTBOUND" ? "bubble-outbound" : "bubble-inbound"
+                      msg.direction === "OUTBOUND" || msg.direction === "OUTBOUND_AI" ? "bubble-outbound" : "bubble-inbound"
                     }`}>
-                      {msg.direction === "OUTBOUND" && (
+                      {(msg.direction === "OUTBOUND" || msg.direction === "OUTBOUND_AI") && (
                         <p className="text-[10px] text-[var(--color-primary-600)] font-semibold mb-1 flex items-center gap-1">
                           <Bot className="w-3 h-3" />
                           Mirna AI
@@ -203,13 +218,13 @@ export default function ConversationsPage() {
                         {msg.content}
                       </p>
                       <p className={`text-[10px] mt-2 ${
-                        msg.direction === "OUTBOUND" ? "text-emerald-600/50 text-right" : "text-gray-400"
+                        (msg.direction === "OUTBOUND" || msg.direction === "OUTBOUND_AI") ? "text-emerald-600/50 text-right" : "text-gray-400"
                       }`}>
                         {new Date(msg.timestamp).toLocaleTimeString("id-ID", {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
-                        {msg.direction === "OUTBOUND" && (msg.isRead ? " ✓✓" : " ✓")}
+                        {(msg.direction === "OUTBOUND" || msg.direction === "OUTBOUND_AI") && (msg.isRead ? " ✓✓" : " ✓")}
                       </p>
                     </div>
                   </div>
@@ -252,24 +267,24 @@ export default function ConversationsPage() {
             <div className="w-[280px] border-l border-[var(--color-border)] flex flex-col flex-shrink-0 bg-white">
               <div className="p-5 border-b border-[var(--color-border)] text-center">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--color-primary-500)] to-[var(--color-primary-800)] flex items-center justify-center text-white text-xl font-bold mx-auto shadow-lg">
-                  {getInitials(selected.lead.contactName)}
+                  {getInitials(selected.name || selected.lead?.contactName || "")}
                 </div>
                 <h3 className="font-display text-base font-bold text-[var(--color-text)] mt-3">
-                  {selected.lead.contactName}
+                  {selected.name || selected.lead?.contactName}
                 </h3>
                 <p className="text-xs text-[var(--color-muted)] mt-1">
-                  {formatPhone(selected.lead.phoneNumber)}
+                  {formatPhone(selected.phone || selected.lead?.phoneNumber || "")}
                 </p>
                 <div className="mt-3">
-                  <StageBadge stage={selected.lead.pipelineStage} size="md" />
+                  <StageBadge stage={selected.lead?.pipelineStage || "LEADS"} size="md" />
                 </div>
               </div>
 
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
                 {[
-                  { icon: Calendar, label: "Tanggal Acara", value: new Date(selected.lead.eventDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) },
-                  { icon: MapPin, label: "Lokasi", value: selected.lead.location },
-                  { icon: Users, label: "Tamu", value: `${selected.lead.guestCount} orang` },
+                  { icon: Calendar, label: "Tanggal Acara", value: (selected.lead?.eventDate) ? new Date(selected.lead.eventDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "-" },
+                  { icon: MapPin, label: "Lokasi", value: selected.lead?.location || "-" },
+                  { icon: Users, label: "Tamu", value: `${selected.lead?.guestCount || 0} orang` },
                 ].map((item, i) => (
                   <div key={i} className="flex items-start gap-2.5">
                     <item.icon className="w-4 h-4 text-[var(--color-muted)] mt-0.5" />

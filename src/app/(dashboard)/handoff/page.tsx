@@ -3,6 +3,7 @@
 import { mockConversations } from "@/lib/mock-data";
 import { formatPhone, getInitials } from "@/lib/utils";
 import { ConvStatusBadge } from "@/components/shared/Badges";
+import { getConversations } from "@/app/actions/crm";
 import {
   Headphones,
   UserCheck,
@@ -13,8 +14,16 @@ import {
 import { useState, useEffect } from "react";
 
 export default function HandoffPage() {
-  const waiting = mockConversations.filter((c) => c.status === "WAITING_CS");
-  const resolved = mockConversations.filter((c) => c.status === "RESOLVED");
+  const [conversationsData, setConversationsData] = useState<any[]>(mockConversations);
+
+  useEffect(() => {
+    getConversations().then((data) => {
+      setConversationsData(data as any[]);
+    });
+  }, []);
+
+  const waiting = conversationsData.filter((c) => c.status === "WAITING_CS");
+  const resolved = conversationsData.filter((c) => c.status === "RESOLVED");
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -60,17 +69,19 @@ export default function HandoffPage() {
             Selesai Hari Ini
           </h2>
           <div className="space-y-3">
-            {resolved.map((conv) => (
+            {resolved.map((conv) => {
+              const contactName = conv.name || conv.lead?.contactName || "Unknown";
+              return (
               <div
                 key={conv.id}
                 className="flex items-center gap-4 p-3 rounded-lg bg-[var(--color-bg)]"
               >
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center text-white text-xs font-bold">
-                  {getInitials(conv.lead.contactName)}
+                  {getInitials(contactName)}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-[var(--color-text)]">
-                    {conv.lead.contactName}
+                    {contactName}
                   </p>
                   <p className="text-xs text-[var(--color-muted)]">
                     Ditangani oleh: {conv.assignedTo || "—"}
@@ -78,7 +89,7 @@ export default function HandoffPage() {
                 </div>
                 <ConvStatusBadge status={conv.status} />
               </div>
-            ))}
+            )})}
           </div>
         </div>
       )}
@@ -86,16 +97,17 @@ export default function HandoffPage() {
   );
 }
 
-function WaitingCard({ conv }: { conv: typeof mockConversations[0] }) {
+function WaitingCard({ conv }: { conv: any }) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    const start = new Date(conv.lastMessageAt).getTime();
+    const start = new Date(conv.time || conv.lastMessageAt).getTime();
+    if (isNaN(start)) return;
     const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [conv.lastMessageAt]);
+  }, [conv.time, conv.lastMessageAt]);
 
   const formatElapsed = (s: number) => {
     const h = Math.floor(s / 3600);
@@ -106,7 +118,9 @@ function WaitingCard({ conv }: { conv: typeof mockConversations[0] }) {
     return `${sec}d`;
   };
 
-  const lastCSMessage = [...conv.messages].reverse().find(m => m.content === "CS1");
+  const messages = conv.messages || [];
+  const contactName = conv.name || conv.lead?.contactName || "Unknown";
+  const phoneNumber = conv.phone || conv.lead?.phoneNumber || "";
 
   return (
     <div className="bg-white rounded-xl border-2 border-red-200 p-5 card-hover relative overflow-hidden">
@@ -115,7 +129,7 @@ function WaitingCard({ conv }: { conv: typeof mockConversations[0] }) {
       <div className="flex items-start gap-4">
         <div className="relative">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center text-white text-sm font-bold">
-            {getInitials(conv.lead.contactName)}
+            {getInitials(contactName)}
           </div>
           <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center badge-bounce">
             <Headphones className="w-3 h-3 text-white" />
@@ -126,10 +140,10 @@ function WaitingCard({ conv }: { conv: typeof mockConversations[0] }) {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-base font-bold text-[var(--color-text)]">
-                {conv.lead.contactName}
+                {contactName}
               </p>
               <p className="text-xs text-[var(--color-muted)]">
-                {formatPhone(conv.lead.phoneNumber)}
+                {formatPhone(phoneNumber)}
               </p>
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 rounded-lg">
@@ -147,7 +161,7 @@ function WaitingCard({ conv }: { conv: typeof mockConversations[0] }) {
               Pesan terakhir sebelum CS1:
             </p>
             <p className="text-sm text-[var(--color-text)] line-clamp-2">
-              {conv.messages[conv.messages.length - 2]?.content || "—"}
+              {messages[messages.length - 2]?.content || "—"}
             </p>
           </div>
 
