@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { mockLeads, type Stage } from "@/lib/mock-data";
 import { formatPhone, relativeTime } from "@/lib/utils";
 import { StageBadge } from "@/components/shared/Badges";
+import { getLeads } from "@/app/actions/crm";
 import Link from "next/link";
 import {
   Search,
@@ -32,25 +33,35 @@ export default function LeadsPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [leadsData, setLeadsData] = useState<any[]>(mockLeads);
+
+  useEffect(() => {
+    // Ambil data asli dari Supabase via Server Action
+    getLeads().then((data) => {
+      // Data sudah difallback ke mockLeads jika DB belum nyala
+      setLeadsData(data as any[]);
+    });
+  }, []);
 
   const filtered = useMemo(() => {
-    let data = [...mockLeads];
+    let data = [...leadsData];
     if (activeTab !== "ALL") {
-      data = data.filter((l) => l.pipelineStage === activeTab);
+      // Note: we might need to handle mapped DB fields (e.g., pipelineStage -> status)
+      data = data.filter((l) => (l.pipelineStage || l.status) === activeTab);
     }
     if (search.trim()) {
       const q = search.toLowerCase();
       data = data.filter(
         (l) =>
-          l.contactName.toLowerCase().includes(q) ||
-          l.phoneNumber.includes(q) ||
-          l.location.toLowerCase().includes(q)
+          (l.contactName || l.name || "").toLowerCase().includes(q) ||
+          (l.phoneNumber || l.phone || "").includes(q) ||
+          (l.location || "").toLowerCase().includes(q)
       );
     }
     return data;
-  }, [activeTab, search]);
+  }, [activeTab, search, leadsData]);
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
@@ -79,8 +90,8 @@ export default function LeadsPage() {
             {TABS.map((tab) => {
               const count =
                 tab.value === "ALL"
-                  ? mockLeads.length
-                  : mockLeads.filter((l) => l.pipelineStage === tab.value).length;
+                  ? leadsData.length
+                  : leadsData.filter((l) => (l.pipelineStage || l.status) === tab.value).length;
               return (
                 <button
                   key={tab.value}
@@ -173,57 +184,57 @@ export default function LeadsPage() {
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[var(--color-primary-500)] to-[var(--color-primary-700)] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                        {lead.contactName
+                        {(lead.contactName || lead.name || "UN")
                           .split(" ")
-                          .map((n) => n[0])
+                          .map((n: string) => n[0])
                           .join("")
                           .slice(0, 2)}
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-[var(--color-text)]">
-                          {lead.contactName}
+                          {lead.contactName || lead.name}
                         </p>
                         <p className="text-xs text-[var(--color-muted)]">
-                          {formatPhone(lead.phoneNumber)}
+                          {formatPhone(lead.phoneNumber || lead.phone || "")}
                         </p>
                       </div>
                     </div>
                   </td>
                   <td className="py-3 px-4">
                     <span className="text-sm text-[var(--color-text)]">
-                      {lead.eventType}
+                      {lead.eventType || "-"}
                     </span>
                   </td>
                   <td className="py-3 px-4">
                     <span className="text-sm text-[var(--color-text)]">
-                      {new Date(lead.eventDate).toLocaleDateString("id-ID", {
+                      {lead.eventDate ? new Date(lead.eventDate).toLocaleDateString("id-ID", {
                         day: "numeric",
                         month: "short",
                         year: "numeric",
-                      })}
+                      }) : "-"}
                     </span>
                   </td>
                   <td className="py-3 px-4">
                     <div>
                       <p className="text-sm text-[var(--color-text)]">
-                        {lead.location}
+                        {lead.location || "-"}
                       </p>
                       <p className="text-xs text-[var(--color-muted)] truncate max-w-[160px]">
-                        {lead.venueName}
+                        {lead.venueName || ""}
                       </p>
                     </div>
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span className="text-sm font-semibold text-[var(--color-text)]">
-                      {lead.guestCount.toLocaleString()}
+                      {(lead.guestCount || 0).toLocaleString()}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-center">
-                    <StageBadge stage={lead.pipelineStage} />
+                    <StageBadge stage={lead.pipelineStage || lead.status} />
                   </td>
                   <td className="py-3 px-4">
                     <span className="text-xs text-[var(--color-muted)]">
-                      {relativeTime(lead.lastInteraction)}
+                      {relativeTime(lead.lastInteraction || lead.lastActive)}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-center">
