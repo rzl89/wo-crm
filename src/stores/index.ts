@@ -23,20 +23,8 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  user: {
-    id: "user-001",
-    email: "admin@winalhusna.com",
-    name: "Admin Wina",
-    role: "OWNER",
-    avatarUrl: null,
-  },
-  tenant: {
-    id: "tenant-001",
-    name: "Wina Al-Husna Wedding & Catering",
-    slug: "wina-alhusna",
-    aiPersonaName: "Mirna",
-    planTier: "PRO",
-  },
+  user: null,
+  tenant: null,
   isLoading: false,
   setUser: (user) => set({ user }),
   setTenant: (tenant) => set({ tenant }),

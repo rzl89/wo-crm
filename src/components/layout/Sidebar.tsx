@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuthStore, useNotifStore } from "@/stores";
+import { logout } from "@/app/actions/auth";
 import {
   LayoutDashboard,
   Users,
@@ -102,10 +103,12 @@ export function Sidebar() {
           <Settings className="w-[18px] h-[18px]" />
           <span>Settings</span>
         </Link>
-        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/50 hover:bg-red-500/10 hover:text-red-400 transition-all">
-          <LogOut className="w-[18px] h-[18px]" />
-          <span>Keluar</span>
-        </button>
+        <form action={logout}>
+          <button type="submit" className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/50 hover:bg-red-500/10 hover:text-red-400 transition-all">
+            <LogOut className="w-[18px] h-[18px]" />
+            <span>Keluar</span>
+          </button>
+        </form>
       </div>
     </aside>
   );
