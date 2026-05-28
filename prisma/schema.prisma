@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+// ─── MULTI-TENANT ───────────────────────────────────────────
+
+model Tenant {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique  // dipakai di webhook URL: /api/webhook/[slug]
+  businessType     String?  // "wedding", "catering", "event", dll
+  logoUrl          String?
+  
+  // WhatsApp Config
+  waInstanceName   String?  // Evolution API instance name
+  waInstanceUrl    String?  // Evolution API base URL
+  waApiKey         String?  // Evolution API key (encrypted)
+  waWebhookSecret  String?  // untuk verifikasi webhook
+  
+  // AI Config
+  aiPersonaName    String   @default("Mirna")
+  aiSystemPrompt   String?  @db.Text
+  aiModel          String   @default("gpt-4o")
+  
+  // Billing (untuk nanti)
+  planTier         PlanTier @default(FREE)
+  stripeCustomerId String?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  users            User[]
+  leads            Lead[]
+  conversations    Conversation[]
+  documents        KnowledgeDocument[]
+  formSubmissions  FormSubmission[]
+}
+
+enum PlanTier {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+// ─── AUTH ────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  supabaseUid  String   @unique  // dari Supabase Auth
+  email        String
+  name         String?
+  role         UserRole @default(AGENT)
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  assignedConversations Conversation[]
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  AGENT
+}
+
+// ─── CRM ─────────────────────────────────────────────────────
+
+model Lead {
+  id              String    @id @default(cuid())
+  tenantId        String
+  phoneNumber     String    // format: 628xxx (sudah normalized)
+  contactName     String?
+  eventType       String?   // "pernikahan", "catering", dll
+  eventDate       DateTime?
+  location        String?
+  venueName       String?
+  guestCount      Int?
+  pipelineStage   Stage     @default(LEADS)
+  lastInteraction DateTime?
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  conversations   Conversation[]
+  stageHistory    StageHistory[]
+  
+  @@unique([tenantId, phoneNumber])
+}
+
+enum Stage {
+  LEADS
+  MEETING
+  CLOSING
+}
+
+model StageHistory {
+  id        String   @id @default(cuid())
+  leadId    String
+  fromStage Stage?
+  toStage   Stage
+  changedBy String?  // "AI" atau user ID
+  changedAt DateTime @default(now())
+  
+  lead      Lead     @relation(fields: [leadId], references: [id])
+}
+
+// ─── CONVERSATIONS ───────────────────────────────────────────
+
+model Conversation {
+  id           String      @id @default(cuid())
+  tenantId     String
+  leadId       String
+  status       ConvStatus  @default(AI_HANDLING)
+  assignedToId String?
+  
+  // Metadata
+  lastMessageAt  DateTime?
+  lastMessagePreview String?
+  unreadCount    Int       @default(0)
+  
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  
+  tenant       Tenant      @relation(fields: [tenantId], references: [id])
+  lead         Lead        @relation(fields: [leadId], references: [id])
+  assignedTo   User?       @relation(fields: [assignedToId], references: [id])
+  messages     Message[]
+}
+
+enum ConvStatus {
+  AI_HANDLING
+  WAITING_CS
+  CS_HANDLING
+  RESOLVED
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String
+  direction      Direction
+  content        String      @db.Text
+  mediaUrls      String[]    @default([])
+  mediaType      MediaType?
+  waMessageId    String?     // ID dari WhatsApp/Evolution API
+  isRead         Boolean     @default(false)
+  timestamp      DateTime    @default(now())
+  
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+}
+
+enum Direction {
+  INBOUND
+  OUTBOUND
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  DOCUMENT
+  AUDIO
+}
+
+// ─── KNOWLEDGE BASE ──────────────────────────────────────────
+
+model KnowledgeDocument {
+  id           String    @id @default(cuid())
+  tenantId     String
+  fileName     String
+  fileType     String    // "pdf", "docx", "xlsx", "csv"
+  filePath     String    // Supabase Storage path
+  fileSize     Int?
+  status       DocStatus @default(PROCESSING)
+  chunkCount   Int?
+  errorMessage String?
+  uploadedAt   DateTime  @default(now())
+  indexedAt    DateTime?
+  
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+}
+
+enum DocStatus {
+  PROCESSING
+  INDEXED
+  FAILED
+}
+
+// ─── FORM SUBMISSIONS ────────────────────────────────────────
+
+model FormSubmission {
+  id           String   @id @default(cuid())
+  tenantId     String
+  phoneNumber  String
+  contactName  String?
+  eventType    String?
+  eventDate    DateTime?
+  location     String?
+  venueName    String?
+  guestCount   Int?
+  isProcessed  Boolean  @default(false)
+  submittedAt  DateTime @default(now())
+  
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+}
