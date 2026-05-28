@@ -1,26 +1,189 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Primary — Islamic Emerald */
+  --color-primary-950: #052e16;
+  --color-primary-900: #14532d;
+  --color-primary-800: #166534;
+  --color-primary-700: #15803d;
+  --color-primary-600: #16a34a;
+  --color-primary-500: #22c55e;
+  --color-primary-100: #dcfce7;
+  --color-primary-50: #f0fdf4;
+
+  /* Accent — Warm Gold */
+  --color-gold-700: #a16207;
+  --color-gold-500: #c9a84c;
+  --color-gold-400: #e4c26a;
+  --color-gold-100: #fef9c3;
+
+  /* Neutrals */
+  --color-bg: #fafaf7;
+  --color-surface: #ffffff;
+  --color-border: #e5e7eb;
+  --color-text: #111827;
+  --color-muted: #6b7280;
+
+  /* Semantic */
+  --color-leads: #3b82f6;
+  --color-meeting: #f59e0b;
+  --color-closing: #10b981;
+  --color-waiting: #ef4444;
+  --color-ai: #8b5cf6;
+
+  /* Layout */
+  --sidebar-width: 260px;
+  --header-height: 64px;
+
+  /* Font families */
+  --font-display: 'Playfair Display', serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Islamic Geometric Pattern (SVG inline) ─── */
+.islamic-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e4c26a' fill-opacity='0.06'%3E%3Cpath d='M30 0L45 15L30 30L15 15zM30 30L45 45L30 60L15 45z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+.islamic-pattern-dark {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e4c26a' fill-opacity='0.04'%3E%3Cpath d='M30 0L45 15L30 30L15 15zM30 30L45 45L30 60L15 45z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* ─── Typography classes ─── */
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* ─── Card hover animation ─── */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
+
+/* ─── Sidebar Active Indicator ─── */
+.sidebar-item {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.sidebar-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  background: var(--color-gold-400);
+  border-radius: 0 4px 4px 0;
+}
+
+/* ─── Stage Badge Pulse ─── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* ─── Chat Bubbles ─── */
+.bubble-inbound {
+  background: #f3f4f6;
+  border-radius: 4px 16px 16px 16px;
+}
+
+.bubble-outbound {
+  background: var(--color-primary-50);
+  border: 1px solid var(--color-primary-100);
+  border-radius: 16px 4px 16px 16px;
+}
+
+/* ─── Skeleton loading ─── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+/* ─── Notification Badge ─── */
+@keyframes badge-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+.badge-bounce {
+  animation: badge-bounce 1s ease-in-out infinite;
+}
+
+/* ─── Fade In ─── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* ─── Slide In from left ─── */
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-slide-in {
+  animation: slideInLeft 0.3s ease-out forwards;
 }
