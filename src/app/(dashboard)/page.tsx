@@ -1,7 +1,7 @@
-"use client";
-
-import { mockMetrics, mockActivities, mockLeads } from "@/lib/mock-data";
+import { getDashboardMetrics } from "@/app/actions/crm";
+import { mockActivities } from "@/lib/mock-data";
 import { relativeTime } from "@/lib/utils";
+import { PipelineChart } from "@/components/dashboard/PipelineChart";
 import {
   Users,
   MessageSquare,
@@ -15,65 +15,6 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
-
-const metrics = [
-  {
-    title: "Leads Hari Ini",
-    value: mockMetrics.totalLeadsToday,
-    icon: Users,
-    trend: "+12%",
-    trendUp: true,
-    color: "from-blue-500 to-blue-600",
-    lightBg: "bg-blue-50",
-    lightText: "text-blue-600",
-  },
-  {
-    title: "Percakapan Aktif",
-    value: mockMetrics.activeConversations,
-    icon: MessageSquare,
-    trend: "+3",
-    trendUp: true,
-    color: "from-violet-500 to-violet-600",
-    lightBg: "bg-violet-50",
-    lightText: "text-violet-600",
-  },
-  {
-    title: "Menunggu CS",
-    value: mockMetrics.waitingCS,
-    icon: Headphones,
-    trend: "Perlu tindakan",
-    trendUp: false,
-    color: "from-red-500 to-red-600",
-    lightBg: "bg-red-50",
-    lightText: "text-red-600",
-    urgent: true,
-  },
-  {
-    title: "Closing Bulan Ini",
-    value: mockMetrics.closingThisMonth,
-    icon: TrendingUp,
-    trend: "+25%",
-    trendUp: true,
-    color: "from-emerald-500 to-emerald-600",
-    lightBg: "bg-emerald-50",
-    lightText: "text-emerald-600",
-  },
-];
-
-const pipelineData = [
-  { name: "Leads", value: mockMetrics.leadsCount, fill: "#3b82f6" },
-  { name: "Meeting", value: mockMetrics.meetingCount, fill: "#f59e0b" },
-  { name: "Closing", value: mockMetrics.closingCount, fill: "#10b981" },
-];
 
 const activityIcons: Record<string, typeof MessageCircle> = {
   message: MessageCircle,
@@ -89,8 +30,66 @@ const activityColors: Record<string, string> = {
   handoff: "bg-red-100 text-red-600",
 };
 
-export default function DashboardPage() {
-  const totalLeads = mockLeads.length;
+export default async function DashboardPage() {
+  const metricsData = await getDashboardMetrics();
+  
+  // Safe defaults if database fails or returns null
+  const data = metricsData || {
+    totalLeads: 0,
+    activeConversations: 0,
+    waitingCS: 0,
+    closingCount: 0,
+  };
+
+  const metrics = [
+    {
+      title: "Leads Total",
+      value: data.totalLeads,
+      icon: Users,
+      trend: "+12%",
+      trendUp: true,
+      color: "from-blue-500 to-blue-600",
+      lightBg: "bg-blue-50",
+      lightText: "text-blue-600",
+    },
+    {
+      title: "Percakapan Aktif",
+      value: data.activeConversations,
+      icon: MessageSquare,
+      trend: "+3",
+      trendUp: true,
+      color: "from-violet-500 to-violet-600",
+      lightBg: "bg-violet-50",
+      lightText: "text-violet-600",
+    },
+    {
+      title: "Menunggu CS",
+      value: data.waitingCS,
+      icon: Headphones,
+      trend: "Perlu tindakan",
+      trendUp: false,
+      color: "from-red-500 to-red-600",
+      lightBg: "bg-red-50",
+      lightText: "text-red-600",
+      urgent: true,
+    },
+    {
+      title: "Closing",
+      value: data.closingCount,
+      icon: TrendingUp,
+      trend: "+25%",
+      trendUp: true,
+      color: "from-emerald-500 to-emerald-600",
+      lightBg: "bg-emerald-50",
+      lightText: "text-emerald-600",
+    },
+  ];
+
+  const pipelineData = [
+    { name: "Leads", value: data.totalLeads, fill: "#3b82f6" },
+    { name: "Meeting", value: Math.floor(data.totalLeads * 0.4), fill: "#f59e0b" }, // Mock conversion rate
+    { name: "Closing", value: data.closingCount, fill: "#10b981" },
+  ];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -101,7 +100,7 @@ export default function DashboardPage() {
             Dashboard
           </h1>
           <p className="text-sm text-[var(--color-muted)] mt-1">
-            Selamat datang kembali! Berikut ringkasan hari ini.
+            Selamat datang kembali! Berikut ringkasan performa Anda.
           </p>
         </div>
         <div className="text-right">
@@ -176,49 +175,19 @@ export default function DashboardPage() {
               Pipeline CRM
             </h2>
             <span className="text-xs text-[var(--color-muted)]">
-              Total: {totalLeads} leads
+              Total: {data.totalLeads} leads
             </span>
           </div>
 
           <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={pipelineData}
-                layout="vertical"
-                margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-              >
-                <XAxis type="number" hide />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  width={70}
-                  tick={{ fontSize: 13, fontWeight: 600, fill: "#374151" }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "1px solid var(--color-border)",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
-                    fontSize: "13px",
-                  }}
-                  formatter={(value: number) => [`${value} leads`, "Jumlah"]}
-                />
-                <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={28}>
-                  {pipelineData.map((entry, index) => (
-                    <Cell key={index} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <PipelineChart data={pipelineData} />
           </div>
 
           {/* Conversion rates */}
           <div className="flex items-center gap-2 mt-4 pt-4 border-t border-[var(--color-border)]">
             <div className="flex-1 text-center">
               <p className="text-lg font-bold text-blue-600">
-                {mockMetrics.leadsCount}
+                {data.totalLeads}
               </p>
               <p className="text-[10px] text-[var(--color-muted)] uppercase">
                 Leads
@@ -227,7 +196,7 @@ export default function DashboardPage() {
             <ArrowRight className="w-4 h-4 text-gray-300" />
             <div className="flex-1 text-center">
               <p className="text-lg font-bold text-amber-600">
-                {mockMetrics.meetingCount}
+                {Math.floor(data.totalLeads * 0.4)}
               </p>
               <p className="text-[10px] text-[var(--color-muted)] uppercase">
                 Meeting
@@ -236,7 +205,7 @@ export default function DashboardPage() {
             <ArrowRight className="w-4 h-4 text-gray-300" />
             <div className="flex-1 text-center">
               <p className="text-lg font-bold text-emerald-600">
-                {mockMetrics.closingCount}
+                {data.closingCount}
               </p>
               <p className="text-[10px] text-[var(--color-muted)] uppercase">
                 Closing
@@ -310,7 +279,7 @@ export default function DashboardPage() {
               className="flex items-center gap-2 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-colors shadow-lg shadow-red-500/30"
             >
               <Headphones className="w-4 h-4" />
-              Antrian CS ({mockMetrics.waitingCS})
+              Antrian CS ({data.waitingCS})
             </Link>
             <Link
               href="/conversations"
