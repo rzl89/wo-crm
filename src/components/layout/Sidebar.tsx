@@ -46,10 +46,10 @@ export function Sidebar() {
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="font-display text-lg font-bold tracking-wide text-white leading-tight">
-            Wina CRM
+            Aura CRM
           </h1>
           <p className="text-[11px] text-emerald-300/70 truncate">
-            {tenant?.name || "Wedding & Catering System"}
+            {tenant?.name || "Smart WO Platform"}
           </p>
         </div>
       </div>
