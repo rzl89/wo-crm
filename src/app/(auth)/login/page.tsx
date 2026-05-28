@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { login } from "@/app/actions/auth";
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormStatus } from "react-dom";
+import { useActionState } from "react";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -18,7 +19,7 @@ function SubmitButton() {
 }
 
 export default function LoginPage() {
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     async (prevState: any, formData: FormData) => {
       return await login(formData);
     },
