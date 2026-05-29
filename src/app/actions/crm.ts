@@ -7,7 +7,7 @@ import { mockLeads, mockMetrics, mockConversations } from "@/lib/mock-data";
 // Helper function to get current Tenant ID from Auth Session
 async function getTenantId() {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     
     if (user) {
@@ -51,10 +51,10 @@ export async function getDashboardMetrics() {
   } catch (error) {
     // Fallback to mock data if database is not connected
     return {
-      totalLeads: mockMetrics.totalLeads,
+      totalLeads: (mockMetrics as any).totalLeads || (mockMetrics as any).leadsCount || 0,
       activeConversations: mockMetrics.activeConversations,
       waitingCS: mockMetrics.waitingCS,
-      closingCount: mockMetrics.closingCount,
+      closingCount: (mockMetrics as any).closingCount || 0,
     };
   }
 }
@@ -90,7 +90,7 @@ export async function getLeads(search?: string) {
       phone: lead.phoneNumber,
       status: lead.pipelineStage,
       lastActive: lead.lastInteraction || lead.updatedAt,
-      tags: lead.tags,
+      tags: (lead as any).tags || [],
       unread: 0,
       convStatus: lead.conversations[0]?.status || "AI_HANDLING"
     }));

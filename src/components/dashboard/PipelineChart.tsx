@@ -38,7 +38,7 @@ export function PipelineChart({ data }: PipelineChartProps) {
             boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
             fontSize: "13px",
           }}
-          formatter={(value: number) => [`${value} leads`, "Jumlah"]}
+          formatter={(value: any) => [`${value} leads`, "Jumlah"]}
         />
         <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={28}>
           {data.map((entry, index) => (
