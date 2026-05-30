@@ -4,7 +4,7 @@ import { Pool } from 'pg'
 
 const prismaClientSingleton = () => {
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: process.env.DIRECT_URL,
     connectionTimeoutMillis: 30000,
     idleTimeoutMillis: 30000,
   })
