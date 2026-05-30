@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Smartphone,
   Link as LinkIcon,
@@ -12,6 +12,8 @@ import {
   ExternalLink,
   Copy,
   AlertCircle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 export default function WhatsAppPage() {
@@ -21,9 +23,14 @@ export default function WhatsAppPage() {
   const [showKey, setShowKey] = useState(false);
   const [webhookSecret, setWebhookSecret] = useState("whsec_••••••••••••••••");
   const [connectionStatus, setConnectionStatus] = useState<"connected" | "disconnected" | "connecting">("disconnected");
+  const [origin, setOrigin] = useState("");
 
-  const webhookUrl = window?.location?.origin
-    ? `${window.location.origin}/api/webhook/wina-crm`
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
+  const webhookUrl = origin
+    ? `${origin}/api/webhook/wina-crm`
     : "https://wina-crm.com/api/webhook/wina-crm";
 
   const testConnection = () => {
@@ -226,4 +233,4 @@ export default function WhatsAppPage() {
   );
 }
 
-import { Eye, EyeOff } from "lucide-react";
+
