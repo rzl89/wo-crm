@@ -84,7 +84,7 @@ export async function getLeads(search?: string) {
       }
     });
 
-    return leads.map(lead => ({
+    return leads.map((lead: any) => ({
       id: lead.id,
       name: lead.contactName || "Unknown",
       phone: lead.phoneNumber,
@@ -115,7 +115,7 @@ export async function getConversations() {
       }
     });
 
-    return conversations.map(c => ({
+    return conversations.map((c: any) => ({
       id: c.id,
       name: c.lead.contactName || "Unknown",
       phone: c.lead.phoneNumber,
@@ -123,7 +123,7 @@ export async function getConversations() {
       lastMessage: c.lastMessagePreview || "",
       time: c.lastMessageAt || c.updatedAt,
       unread: c.unreadCount,
-      messages: c.messages.map(m => ({
+      messages: c.messages.map((m: any) => ({
         id: m.id,
         content: m.content,
         direction: m.direction,
