@@ -1,7 +1,7 @@
 "use client";
 
-import { use } from "react";
-import { mockLeads, mockConversations } from "@/lib/mock-data";
+import { useEffect, useState, use } from "react";
+import { getLeadById } from "@/app/actions/crm";
 import { formatPhone, relativeTime } from "@/lib/utils";
 import { StageBadge, ConvStatusBadge } from "@/components/shared/Badges";
 import Link from "next/link";
@@ -20,8 +20,23 @@ import {
 
 export default function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const lead = mockLeads.find((l) => l.id === id);
-  const conv = mockConversations.find((c) => c.leadId === id);
+  const [lead, setLead] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getLeadById(id).then((data) => {
+      setLead(data);
+      setLoading(false);
+    });
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
+        <p className="text-lg text-[var(--color-muted)]">Loading...</p>
+      </div>
+    );
+  }
 
   if (!lead) {
     return (
@@ -33,6 +48,8 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
       </div>
     );
   }
+
+  const conv = lead.conversation;
 
   const stageHistory = [
     { stage: "LEADS", date: lead.createdAt, by: "Form Submission" },
@@ -90,11 +107,11 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
             </h2>
             <div className="space-y-4">
               {[
-                { icon: Calendar, label: "Tanggal Acara", value: new Date(lead.eventDate).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) },
-                { icon: Building2, label: "Jenis Acara", value: lead.eventType },
-                { icon: MapPin, label: "Lokasi", value: lead.location },
-                { icon: Building2, label: "Venue", value: lead.venueName },
-                { icon: Users, label: "Estimasi Tamu", value: `${lead.guestCount.toLocaleString()} orang` },
+                { icon: Calendar, label: "Tanggal Acara", value: lead.eventDate ? new Date(lead.eventDate).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "-" },
+                { icon: Building2, label: "Jenis Acara", value: lead.eventType || "-" },
+                { icon: MapPin, label: "Lokasi", value: lead.location || "-" },
+                { icon: Building2, label: "Venue", value: lead.venueName || "-" },
+                { icon: Users, label: "Estimasi Tamu", value: lead.guestCount ? `${lead.guestCount.toLocaleString()} orang` : "-" },
                 { icon: Clock, label: "Terakhir Aktif", value: relativeTime(lead.lastInteraction) },
               ].map((item, i) => (
                 <div key={i} className="flex items-start gap-3">
@@ -163,7 +180,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
             </h2>
             {conv && (
               <Link
-                href="/conversations"
+                href={`/conversations?leadId=${id}`}
                 className="text-xs text-[var(--color-primary-600)] hover:underline font-medium"
               >
                 Buka di Live Chat →

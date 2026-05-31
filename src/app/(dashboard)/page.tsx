@@ -1,5 +1,4 @@
-import { getDashboardMetrics } from "@/app/actions/crm";
-import { mockActivities } from "@/lib/mock-data";
+import { getDashboardMetrics, getRecentActivities } from "@/app/actions/crm";
 import { relativeTime } from "@/lib/utils";
 import { PipelineChart } from "@/components/dashboard/PipelineChart";
 import {
@@ -31,7 +30,10 @@ const activityColors: Record<string, string> = {
 };
 
 export default async function DashboardPage() {
-  const metricsData = await getDashboardMetrics();
+  const [metricsData, recentActivities] = await Promise.all([
+    getDashboardMetrics(),
+    getRecentActivities()
+  ]);
   
   // Safe defaults if database fails or returns null
   const data = metricsData || {
@@ -229,35 +231,41 @@ export default async function DashboardPage() {
           </div>
 
           <div className="space-y-1 max-h-[360px] overflow-y-auto">
-            {mockActivities.map((activity, i) => {
-              const Icon = activityIcons[activity.type] || MessageCircle;
-              const colorClass = activityColors[activity.type] || "bg-gray-100 text-gray-600";
+            {recentActivities.length > 0 ? (
+              recentActivities.map((activity, i) => {
+                const Icon = activityIcons[activity.type] || MessageCircle;
+                const colorClass = activityColors[activity.type] || "bg-gray-100 text-gray-600";
 
-              return (
-                <div
-                  key={activity.id}
-                  className="flex items-start gap-3 p-3 rounded-lg hover:bg-[var(--color-bg)] transition-colors animate-fade-in"
-                  style={{ animationDelay: `${i * 50}ms` }}
-                >
+                return (
                   <div
-                    className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${colorClass}`}
+                    key={activity.id}
+                    className="flex items-start gap-3 p-3 rounded-lg hover:bg-[var(--color-bg)] transition-colors animate-fade-in"
+                    style={{ animationDelay: `${i * 50}ms` }}
                   >
-                    <Icon className="w-4 h-4" />
+                    <div
+                      className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${colorClass}`}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[var(--color-text)] truncate">
+                        {activity.title}
+                      </p>
+                      <p className="text-xs text-[var(--color-muted)] mt-0.5 line-clamp-1">
+                        {activity.description}
+                      </p>
+                    </div>
+                    <span className="text-[11px] text-[var(--color-muted)] flex-shrink-0 mt-0.5">
+                      {relativeTime(activity.timestamp)}
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[var(--color-text)] truncate">
-                      {activity.title}
-                    </p>
-                    <p className="text-xs text-[var(--color-muted)] mt-0.5 line-clamp-1">
-                      {activity.description}
-                    </p>
-                  </div>
-                  <span className="text-[11px] text-[var(--color-muted)] flex-shrink-0 mt-0.5">
-                    {relativeTime(activity.timestamp)}
-                  </span>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className="text-center py-10">
+                <p className="text-sm text-[var(--color-muted)]">Belum ada aktivitas</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

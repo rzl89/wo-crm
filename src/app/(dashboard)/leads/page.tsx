@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { mockLeads, type Stage } from "@/lib/mock-data";
+import type { Stage } from "@prisma/client";
 import { formatPhone, relativeTime } from "@/lib/utils";
 import { StageBadge } from "@/components/shared/Badges";
 import { getLeads } from "@/app/actions/crm";
@@ -33,12 +33,11 @@ export default function LeadsPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [leadsData, setLeadsData] = useState<any[]>(mockLeads);
+  const [leadsData, setLeadsData] = useState<any[]>([]);
 
   useEffect(() => {
     // Ambil data asli dari Supabase via Server Action
     getLeads().then((data) => {
-      // Data sudah difallback ke mockLeads jika DB belum nyala
       setLeadsData(data as any[]);
     });
   }, []);
@@ -64,6 +63,31 @@ export default function LeadsPage() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const handleExportCSV = () => {
+    if (leadsData.length === 0) return;
+    const headers = ["Name", "Phone", "Event Type", "Event Date", "Location", "Venue", "Guests", "Stage", "Last Active"];
+    const rows = leadsData.map(lead => [
+      lead.name || lead.contactName || "",
+      lead.phone || lead.phoneNumber || "",
+      lead.eventType || "",
+      lead.eventDate ? new Date(lead.eventDate).toLocaleDateString("id-ID") : "",
+      lead.location || "",
+      lead.venueName || "",
+      lead.guestCount?.toString() || "",
+      lead.status || lead.pipelineStage || "",
+      lead.lastActive || lead.lastInteraction || ""
+    ]);
+    const csvContent = [headers.join(","), ...rows.map(r => r.map(v => `"${v}"`).join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "leads_export.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -76,7 +100,7 @@ export default function LeadsPage() {
             Kelola semua prospek dan pelanggan Anda
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-[var(--color-border)] text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+        <button onClick={handleExportCSV} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-[var(--color-border)] text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
           <Download className="w-4 h-4" />
           Export CSV
         </button>
@@ -129,7 +153,10 @@ export default function LeadsPage() {
             </div>
           </div>
 
-          <button className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-all">
+          <button
+            onClick={() => alert("Fitur Filter Lanjutan akan segera hadir")}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-all"
+          >
             <Filter className="w-4 h-4" />
             Filter Lanjutan
           </button>
@@ -255,10 +282,10 @@ export default function LeadsPage() {
                             <Eye className="w-4 h-4" />
                             Lihat Detail
                           </Link>
-                          <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors">
+                          <Link href={`/conversations?leadId=${lead.id}`} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors">
                             <MessageSquare className="w-4 h-4" />
                             Buka Chat
-                          </button>
+                          </Link>
                         </div>
                       )}
                     </div>

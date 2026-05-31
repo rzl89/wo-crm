@@ -2,7 +2,6 @@
 
 import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
-import { mockLeads, mockMetrics, mockConversations } from "@/lib/mock-data";
 
 // Helper function to get current Tenant ID from Auth Session
 async function getTenantId() {
@@ -18,11 +17,10 @@ async function getTenantId() {
       if (dbUser) return dbUser.tenantId;
     }
 
-    const fallback = await prisma.tenant.findFirst();
-    return fallback?.id || "";
+    throw new Error("Unauthorized: User not found in database");
   } catch (error) {
-    console.error("Database not connected yet", error);
-    return null;
+    console.error("Failed to get tenant ID:", error);
+    throw error;
   }
 }
 
@@ -49,12 +47,12 @@ export async function getDashboardMetrics() {
       closingCount,
     };
   } catch (error) {
-    // Fallback to mock data if database is not connected
+    console.error("Failed to get dashboard metrics:", error);
     return {
-      totalLeads: (mockMetrics as any).totalLeads || (mockMetrics as any).leadsCount || 0,
-      activeConversations: mockMetrics.activeConversations,
-      waitingCS: mockMetrics.waitingCS,
-      closingCount: (mockMetrics as any).closingCount || 0,
+      totalLeads: 0,
+      activeConversations: 0,
+      waitingCS: 0,
+      closingCount: 0,
     };
   }
 }
@@ -95,7 +93,8 @@ export async function getLeads(search?: string) {
       convStatus: lead.conversations[0]?.status || "AI_HANDLING"
     }));
   } catch (error) {
-    return mockLeads;
+    console.error("Failed to get leads:", error);
+    return [];
   }
 }
 
@@ -131,6 +130,95 @@ export async function getConversations() {
       }))
     }));
   } catch (error) {
-    return mockConversations;
+    console.error("Failed to get conversations:", error);
+    return [];
+  }
+}
+
+export async function getLeadById(id: string) {
+  try {
+    const tenantId = await getTenantId();
+    if (!tenantId) throw new Error("No tenant");
+
+    const lead = await prisma.lead.findUnique({
+      where: { id, tenantId },
+      include: {
+        conversations: {
+          include: {
+            messages: {
+              orderBy: { timestamp: "asc" }
+            }
+          },
+          orderBy: { updatedAt: "desc" },
+          take: 1
+        }
+      }
+    });
+
+    if (!lead) return null;
+
+    return {
+      id: lead.id,
+      contactName: lead.contactName || "Unknown",
+      phoneNumber: lead.phoneNumber,
+      pipelineStage: lead.pipelineStage,
+      eventType: lead.eventType,
+      eventDate: lead.eventDate?.toISOString(),
+      location: lead.location,
+      venueName: lead.venueName,
+      guestCount: lead.guestCount,
+      lastInteraction: lead.lastInteraction?.toISOString() || lead.updatedAt.toISOString(),
+      notes: lead.notes,
+      createdAt: lead.createdAt.toISOString(),
+      conversation: lead.conversations[0] || null
+    };
+  } catch (error) {
+    console.error("Failed to get lead by id:", error);
+    return null;
+  }
+}
+
+export async function getRecentActivities() {
+  try {
+    const tenantId = await getTenantId();
+    if (!tenantId) throw new Error("No tenant");
+
+    const stageHistory = await prisma.stageHistory.findMany({
+      where: { lead: { tenantId } },
+      include: { lead: true },
+      orderBy: { changedAt: "desc" },
+      take: 5
+    });
+
+    const messages = await prisma.message.findMany({
+      where: { conversation: { tenantId } },
+      include: { conversation: { include: { lead: true } } },
+      orderBy: { timestamp: "desc" },
+      take: 5
+    });
+
+    const activities = [
+      ...stageHistory.map(h => ({
+        id: `stage_${h.id}`,
+        type: "stage_change",
+        title: `Stage diubah ke ${h.toStage}`,
+        description: `Lead ${h.lead.contactName || h.lead.phoneNumber}`,
+        timestamp: h.changedAt.toISOString()
+      })),
+      ...messages.map(m => ({
+        id: `msg_${m.id}`,
+        type: "message",
+        title: m.direction === "INBOUND" ? "Pesan masuk" : "Pesan terkirim",
+        description: `Lead ${m.conversation.lead.contactName || m.conversation.lead.phoneNumber}: ${m.content}`,
+        timestamp: m.timestamp.toISOString()
+      }))
+    ];
+
+    activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return activities.slice(0, 5);
+  } catch (error) {
+    console.error("Failed to get recent activities:", error);
+    return [];
   }
 }

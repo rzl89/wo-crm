@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { Stage, ConvStatus, DocStatus } from "@/lib/mock-data";
+import type { Stage, ConvStatus, DocStatus } from "@prisma/client";
 
 const stageConfig: Record<Stage, { label: string; color: string; bg: string; dot: string }> = {
   LEADS: { label: "Leads", color: "text-blue-700", bg: "bg-blue-50 border-blue-200", dot: "bg-blue-500" },
