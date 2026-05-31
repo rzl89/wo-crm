@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
-import { getLeadById } from "@/app/actions/crm";
-import { formatPhone, relativeTime } from "@/lib/utils";
+import { use, useState, useEffect } from "react";
+import { formatPhone, relativeTime, getInitials } from "@/lib/utils";
 import { StageBadge, ConvStatusBadge } from "@/components/shared/Badges";
+import { getLeadById } from "@/app/actions/crm";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Edit3,
   GitBranch,
+  Loader2,
 } from "lucide-react";
 
 export default function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -24,16 +25,16 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getLeadById(id).then((data) => {
-      setLead(data);
-      setLoading(false);
-    });
+    getLeadById(id)
+      .then((data) => setLead(data))
+      .catch(() => setLead(null))
+      .finally(() => setLoading(false));
   }, [id]);
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
-        <p className="text-lg text-[var(--color-muted)]">Loading...</p>
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="w-8 h-8 text-[var(--color-muted)] animate-spin" />
       </div>
     );
   }
@@ -50,20 +51,18 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   const conv = lead.conversation;
-
   const stageHistory = [
     { stage: "LEADS", date: lead.createdAt, by: "Form Submission" },
     ...(lead.pipelineStage === "MEETING" || lead.pipelineStage === "CLOSING"
-      ? [{ stage: "MEETING", date: "2026-05-20T10:00:00Z", by: "AI Auto-detect" }]
+      ? [{ stage: "MEETING", date: lead.lastInteraction, by: "AI Auto-detect" }]
       : []),
     ...(lead.pipelineStage === "CLOSING"
-      ? [{ stage: "CLOSING", date: "2026-05-26T14:00:00Z", by: "Admin Wina" }]
+      ? [{ stage: "CLOSING", date: lead.lastInteraction, by: "System" }]
       : []),
   ];
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Back button */}
       <Link
         href="/leads"
         className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors"
@@ -72,12 +71,11 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         Kembali ke Leads
       </Link>
 
-      {/* Header card */}
       <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--color-primary-500)] to-[var(--color-primary-800)] flex items-center justify-center text-white text-xl font-bold shadow-lg">
-              {lead.contactName.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+              {getInitials(lead.contactName || "")}
             </div>
             <div>
               <h1 className="font-display text-2xl font-bold text-[var(--color-text)]">
@@ -85,22 +83,19 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
               </h1>
               <p className="text-sm text-[var(--color-muted)] flex items-center gap-2 mt-1">
                 <Phone className="w-3.5 h-3.5" />
-                {formatPhone(lead.phoneNumber)}
+                {formatPhone(lead.phoneNumber || "")}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <StageBadge stage={lead.pipelineStage} size="md" />
+            <StageBadge stage={lead.pipelineStage || "LEADS"} size="md" />
             {conv && <ConvStatusBadge status={conv.status} />}
           </div>
         </div>
       </div>
 
-      {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Left: Info & CRM */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Info Grid */}
           <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
             <h2 className="font-display text-lg font-bold text-[var(--color-text)] mb-4">
               Informasi Acara
@@ -127,7 +122,6 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
             </div>
           </div>
 
-          {/* Notes */}
           <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-display text-lg font-bold text-[var(--color-text)]">
@@ -142,7 +136,6 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
             />
           </div>
 
-          {/* Stage History */}
           <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
             <h2 className="font-display text-lg font-bold text-[var(--color-text)] mb-4">
               Riwayat Stage
@@ -150,7 +143,6 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
             <div className="space-y-0">
               {stageHistory.map((entry, i) => (
                 <div key={i} className="flex items-start gap-3 relative">
-                  {/* Line */}
                   {i < stageHistory.length - 1 && (
                     <div className="absolute left-[15px] top-8 w-0.5 h-full bg-[var(--color-border)]" />
                   )}
@@ -171,7 +163,6 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
           </div>
         </div>
 
-        {/* Right: Conversation History */}
         <div className="lg:col-span-3 bg-white rounded-xl border border-[var(--color-border)] flex flex-col" style={{ maxHeight: "calc(100vh - 180px)" }}>
           <div className="px-6 py-4 border-b border-[var(--color-border)] flex items-center justify-between">
             <h2 className="font-display text-lg font-bold text-[var(--color-text)] flex items-center gap-2">
@@ -180,7 +171,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
             </h2>
             {conv && (
               <Link
-                href={`/conversations?leadId=${id}`}
+                href="/conversations"
                 className="text-xs text-[var(--color-primary-600)] hover:underline font-medium"
               >
                 Buka di Live Chat →
@@ -189,8 +180,8 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {conv && conv.messages.length > 0 ? (
-              conv.messages.map((msg) => (
+            {conv && conv.messages && conv.messages.length > 0 ? (
+              conv.messages.map((msg: any) => (
                 <div
                   key={msg.id}
                   className={`flex ${msg.direction === "OUTBOUND" ? "justify-end" : "justify-start"}`}

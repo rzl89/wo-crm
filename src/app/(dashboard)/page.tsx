@@ -30,12 +30,9 @@ const activityColors: Record<string, string> = {
 };
 
 export default async function DashboardPage() {
-  const [metricsData, recentActivities] = await Promise.all([
-    getDashboardMetrics(),
-    getRecentActivities()
-  ]);
-  
-  // Safe defaults if database fails or returns null
+  const metricsData = await getDashboardMetrics();
+  const activities = await getRecentActivities();
+
   const data = metricsData || {
     totalLeads: 0,
     activeConversations: 0,
@@ -48,7 +45,7 @@ export default async function DashboardPage() {
       title: "Leads Total",
       value: data.totalLeads,
       icon: Users,
-      trend: "+12%",
+      trend: "+0",
       trendUp: true,
       color: "from-blue-500 to-blue-600",
       lightBg: "bg-blue-50",
@@ -58,7 +55,7 @@ export default async function DashboardPage() {
       title: "Percakapan Aktif",
       value: data.activeConversations,
       icon: MessageSquare,
-      trend: "+3",
+      trend: "+0",
       trendUp: true,
       color: "from-violet-500 to-violet-600",
       lightBg: "bg-violet-50",
@@ -79,7 +76,7 @@ export default async function DashboardPage() {
       title: "Closing",
       value: data.closingCount,
       icon: TrendingUp,
-      trend: "+25%",
+      trend: "+0",
       trendUp: true,
       color: "from-emerald-500 to-emerald-600",
       lightBg: "bg-emerald-50",
@@ -89,7 +86,7 @@ export default async function DashboardPage() {
 
   const pipelineData = [
     { name: "Leads", value: data.totalLeads, fill: "#3b82f6" },
-    { name: "Meeting", value: Math.floor(data.totalLeads * 0.4), fill: "#f59e0b" }, // Mock conversion rate
+    { name: "Meeting", value: 0, fill: "#f59e0b" },
     { name: "Closing", value: data.closingCount, fill: "#10b981" },
   ];
 
@@ -127,7 +124,6 @@ export default async function DashboardPage() {
               className="bg-white rounded-xl border border-[var(--color-border)] p-5 card-hover relative overflow-hidden"
               style={{ animationDelay: `${i * 80}ms` }}
             >
-              {/* Decorative pattern */}
               <div className="absolute top-0 right-0 w-24 h-24 islamic-pattern opacity-30 rounded-bl-full" />
 
               <div className="flex items-start justify-between relative z-10">
@@ -185,7 +181,6 @@ export default async function DashboardPage() {
             <PipelineChart data={pipelineData} />
           </div>
 
-          {/* Conversion rates */}
           <div className="flex items-center gap-2 mt-4 pt-4 border-t border-[var(--color-border)]">
             <div className="flex-1 text-center">
               <p className="text-lg font-bold text-blue-600">
@@ -198,7 +193,7 @@ export default async function DashboardPage() {
             <ArrowRight className="w-4 h-4 text-gray-300" />
             <div className="flex-1 text-center">
               <p className="text-lg font-bold text-amber-600">
-                {Math.floor(data.totalLeads * 0.4)}
+                0
               </p>
               <p className="text-[10px] text-[var(--color-muted)] uppercase">
                 Meeting
@@ -231,8 +226,8 @@ export default async function DashboardPage() {
           </div>
 
           <div className="space-y-1 max-h-[360px] overflow-y-auto">
-            {recentActivities.length > 0 ? (
-              recentActivities.map((activity, i) => {
+            {activities.length > 0 ? (
+              activities.map((activity: any, i: number) => {
                 const Icon = activityIcons[activity.type] || MessageCircle;
                 const colorClass = activityColors[activity.type] || "bg-gray-100 text-gray-600";
 
@@ -262,8 +257,11 @@ export default async function DashboardPage() {
                 );
               })
             ) : (
-              <div className="text-center py-10">
-                <p className="text-sm text-[var(--color-muted)]">Belum ada aktivitas</p>
+              <div className="flex flex-col items-center justify-center py-12">
+                <MessageCircle className="w-10 h-10 text-gray-200 mb-2" />
+                <p className="text-xs text-[var(--color-muted)]">
+                  Belum ada aktivitas terbaru
+                </p>
               </div>
             )}
           </div>

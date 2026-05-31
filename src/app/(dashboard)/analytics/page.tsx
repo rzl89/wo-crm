@@ -1,16 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { mockLeads, mockConversations } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { getDashboardMetrics, getMeetingCount } from "@/app/actions/crm";
 import { PipelineChart } from "@/components/dashboard/PipelineChart";
 import {
-  BarChart3,
   TrendingUp,
   Users,
   MessageSquare,
   CheckCircle2,
-  Clock,
-  Calendar,
+  Loader2,
+  BarChart3,
 } from "lucide-react";
 
 const TIME_RANGES = [
@@ -20,32 +19,52 @@ const TIME_RANGES = [
   { label: "1 Tahun", value: "1y" },
 ];
 
-const leads = mockLeads;
-const conversations = mockConversations;
-
-const totalLeads = leads.length;
-const closingCount = leads.filter((l) => l.pipelineStage === "CLOSING").length;
-const meetingCount = leads.filter((l) => l.pipelineStage === "MEETING").length;
-const leadCount = leads.filter((l) => l.pipelineStage === "LEADS").length;
-const resolvedCount = conversations.filter((c) => c.status === "RESOLVED").length;
-const totalMessages = conversations.reduce((sum, c) => sum + c.messages.length, 0);
-
 export default function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState("30d");
+  const [metrics, setMetrics] = useState<any>(null);
+  const [meetingCount, setMeetingCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([getDashboardMetrics(), getMeetingCount()])
+      .then(([m, mc]) => {
+        setMetrics(m);
+        setMeetingCount(mc);
+      })
+      .catch(() => {
+        setMetrics({ totalLeads: 0, activeConversations: 0, waitingCS: 0, closingCount: 0 });
+        setMeetingCount(0);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="w-8 h-8 text-[var(--color-muted)] animate-spin" />
+      </div>
+    );
+  }
+
+  const totalLeads = metrics?.totalLeads || 0;
+  const closingCount = metrics?.closingCount || 0;
+  const leadCount = totalLeads - meetingCount - closingCount;
 
   const pipelineData = [
-    { name: "Leads", value: leadCount, fill: "#3b82f6" },
+    { name: "Leads", value: leadCount > 0 ? leadCount : 0, fill: "#3b82f6" },
     { name: "Meeting", value: meetingCount, fill: "#f59e0b" },
     { name: "Closing", value: closingCount, fill: "#10b981" },
   ];
 
   const conversionRate = totalLeads > 0 ? Math.round((closingCount / totalLeads) * 100) : 0;
+  const activeConversations = metrics?.activeConversations || 0;
 
   const stats = [
-    { label: "Total Leads", value: totalLeads, icon: Users, color: "text-blue-600", bg: "bg-blue-50", trend: "+18%", trendUp: true },
-    { label: "Conversion Rate", value: `${conversionRate}%`, icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-50", trend: "+5%", trendUp: true },
-    { label: "Total Messages", value: totalMessages, icon: MessageSquare, color: "text-violet-600", bg: "bg-violet-50", trend: "+32%", trendUp: true },
-    { label: "Resolved", value: resolvedCount, icon: CheckCircle2, color: "text-green-600", bg: "bg-green-50", trend: "+2", trendUp: true },
+    { label: "Total Leads", value: totalLeads, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
+    { label: "Conversion Rate", value: `${conversionRate}%`, icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-50" },
+    { label: "Meeting", value: meetingCount, icon: BarChart3, color: "text-amber-600", bg: "bg-amber-50" },
+    { label: "Closing", value: closingCount, icon: CheckCircle2, color: "text-green-600", bg: "bg-green-50" },
   ];
 
   return (
@@ -76,7 +95,6 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {stats.map((stat, i) => (
           <div key={i} className="bg-white rounded-xl border border-[var(--color-border)] p-5 card-hover">
@@ -89,19 +107,11 @@ export default function AnalyticsPage() {
                 <stat.icon className={`w-5 h-5 ${stat.color}`} />
               </div>
             </div>
-            <div className="flex items-center gap-1 mt-3">
-              <TrendingUp className={`w-3.5 h-3.5 ${stat.trendUp ? "text-emerald-500" : "text-red-500"}`} />
-              <span className={`text-xs font-medium ${stat.trendUp ? "text-emerald-600" : "text-red-600"}`}>
-                {stat.trend}
-              </span>
-              <span className="text-xs text-[var(--color-muted)]">vs periode lalu</span>
-            </div>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pipeline Chart */}
         <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
           <h2 className="font-display text-lg font-bold text-[var(--color-text)] mb-1">
             Pipeline CRM
@@ -123,75 +133,16 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Lead Sources */}
         <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
           <h2 className="font-display text-lg font-bold text-[var(--color-text)] mb-1">
-            Sumber Leads
+            Ringkasan Percakapan
           </h2>
-          <p className="text-xs text-[var(--color-muted)] mb-6">Dari mana leads Anda berasal</p>
+          <p className="text-xs text-[var(--color-muted)] mb-6">Status percakapan aktif</p>
           <div className="space-y-4">
             {[
-              { source: "WhatsApp", count: 8, pct: 80, color: "bg-emerald-500" },
-              { source: "Form Website", count: 6, pct: 60, color: "bg-blue-500" },
-              { source: "Referral", count: 3, pct: 30, color: "bg-violet-500" },
-              { source: "Instagram", count: 2, pct: 20, color: "bg-pink-500" },
-              { source: "Google", count: 1, pct: 10, color: "bg-amber-500" },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <span className="text-sm font-medium text-[var(--color-text)] w-24">{item.source}</span>
-                <div className="flex-1 h-2.5 bg-[var(--color-bg)] rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${item.color}`}
-                    style={{ width: `${item.pct}%` }}
-                  />
-                </div>
-                <span className="text-xs font-semibold text-[var(--color-muted)] w-8 text-right">{item.count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Response Time */}
-        <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
-          <h2 className="font-display text-lg font-bold text-[var(--color-text)] mb-1">
-            AI Response Time
-          </h2>
-          <p className="text-xs text-[var(--color-muted)] mb-6">Kecepatan rata-rata respons AI</p>
-          <div className="flex items-end gap-2 h-40">
-            {[0.3, 0.5, 0.4, 0.6, 0.8, 0.7, 0.5].map((val, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <div
-                  className="w-full bg-[var(--color-primary-500)] rounded-t-md transition-all duration-500"
-                  style={{ height: `${val * 120}px`, opacity: 0.3 + val * 0.7 }}
-                />
-                <span className="text-[10px] text-[var(--color-muted)]">{["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"][i]}</span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 pt-4 border-t border-[var(--color-border)] flex items-center justify-between">
-            <div>
-              <p className="text-xs text-[var(--color-muted)]">Rata-rata</p>
-              <p className="text-lg font-bold text-[var(--color-text)]">0.5 detik</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-[var(--color-muted)]">Tercepat</p>
-              <p className="text-lg font-bold text-emerald-600">0.2 detik</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Activity Summary */}
-        <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
-          <h2 className="font-display text-lg font-bold text-[var(--color-text)] mb-1">
-            Ringkasan Aktivitas
-          </h2>
-          <p className="text-xs text-[var(--color-muted)] mb-6">30 hari terakhir</p>
-          <div className="space-y-4">
-            {[
-              { label: "Pesan Diterima", value: 156, icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50" },
-              { label: "Pesan Terkirim (AI)", value: 142, icon: BarChart3, color: "text-violet-600", bg: "bg-violet-50" },
-              { label: "CS Handoffs", value: 8, icon: Users, color: "text-amber-600", bg: "bg-amber-50" },
-              { label: "Lead Baru", value: 12, icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-50" },
+              { label: "Percakapan Aktif", value: activeConversations, icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50" },
+              { label: "Menunggu CS", value: metrics?.waitingCS || 0, icon: CheckCircle2, color: "text-red-600", bg: "bg-red-50" },
+              { label: "Total Closing", value: closingCount, icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-50" },
             ].map((item, i) => (
               <div key={i} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-bg)] transition-colors">
                 <div className="flex items-center gap-3">
@@ -201,6 +152,55 @@ export default function AnalyticsPage() {
                   <span className="text-sm font-medium text-[var(--color-text)]">{item.label}</span>
                 </div>
                 <span className="text-lg font-bold text-[var(--color-text)]">{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
+          <h2 className="font-display text-lg font-bold text-[var(--color-text)] mb-1">
+            Sumber Leads
+          </h2>
+          <p className="text-xs text-[var(--color-muted)] mb-6">Dari mana leads Anda berasal</p>
+          <div className="space-y-4">
+            {[
+              { source: "WhatsApp", pct: 80, color: "bg-emerald-500" },
+              { source: "Form Website", pct: 60, color: "bg-blue-500" },
+              { source: "Referral", pct: 30, color: "bg-violet-500" },
+              { source: "Instagram", pct: 20, color: "bg-pink-500" },
+              { source: "Google", pct: 10, color: "bg-amber-500" },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className="text-sm font-medium text-[var(--color-text)] w-24">{item.source}</span>
+                <div className="flex-1 h-2.5 bg-[var(--color-bg)] rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${item.color}`}
+                    style={{ width: `${item.pct}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
+          <h2 className="font-display text-lg font-bold text-[var(--color-text)] mb-1">
+            Activity
+          </h2>
+          <p className="text-xs text-[var(--color-muted)] mb-6">Ringkasan aktivitas</p>
+          <div className="space-y-4">
+            {[
+              { label: "Total Leads", value: totalLeads, color: "text-blue-600", bg: "bg-blue-50" },
+              { label: "Meeting", value: meetingCount, color: "text-amber-600", bg: "bg-amber-50" },
+              { label: "Closing", value: closingCount, color: "text-emerald-600", bg: "bg-emerald-50" },
+              { label: "Percakapan", value: activeConversations, color: "text-violet-600", bg: "bg-violet-50" },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className={`w-2 h-10 rounded-full ${item.bg} flex-shrink-0`} />
+                <div className="flex-1">
+                  <p className="text-xs text-[var(--color-muted)]">{item.label}</p>
+                  <p className={`text-lg font-bold ${item.color}`}>{item.value}</p>
+                </div>
               </div>
             ))}
           </div>

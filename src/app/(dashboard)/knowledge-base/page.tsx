@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { mockDocuments, type DocStatus } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
 import { DocStatusBadge } from "@/components/shared/Badges";
 import { relativeTime } from "@/lib/utils";
 import {
@@ -17,6 +16,7 @@ import {
   HardDrive,
   Layers,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 
 const fileIconMap: Record<string, typeof FileText> = {
@@ -25,6 +25,8 @@ const fileIconMap: Record<string, typeof FileText> = {
   csv: FileSpreadsheet,
   docx: FileDoc,
 };
+
+type DocStatus = "PROCESSING" | "INDEXED" | "FAILED";
 
 const TABS: { label: string; value: DocStatus | "ALL" }[] = [
   { label: "Semua", value: "ALL" },
@@ -39,20 +41,40 @@ function formatBytes(bytes: number): string {
   return `${bytes} B`;
 }
 
+import { getKnowledgeDocuments } from "@/app/actions/crm";
+
 export default function KnowledgeBasePage() {
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DocStatus | "ALL">("ALL");
   const [search, setSearch] = useState("");
 
-  const filtered = mockDocuments.filter((doc) => {
+  useEffect(() => {
+    setLoading(true);
+    getKnowledgeDocuments()
+      .then((data) => setDocuments(data as any[]))
+      .catch(() => setDocuments([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = documents.filter((doc) => {
     if (activeTab !== "ALL" && doc.status !== activeTab) return false;
     if (search.trim()) {
-      return doc.fileName.toLowerCase().includes(search.toLowerCase());
+      return (doc.fileName || "").toLowerCase().includes(search.toLowerCase());
     }
     return true;
   });
 
-  const totalChunks = mockDocuments.reduce((sum, d) => sum + (d.chunkCount || 0), 0);
-  const totalSize = mockDocuments.reduce((sum, d) => sum + (d.fileSize || 0), 0);
+  const totalChunks = documents.reduce((sum, d) => sum + (d.chunkCount || 0), 0);
+  const totalSize = documents.reduce((sum, d) => sum + (d.fileSize || 0), 0);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="w-8 h-8 text-[var(--color-muted)] animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -71,10 +93,9 @@ export default function KnowledgeBasePage() {
         </button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: "Total Dokumen", value: mockDocuments.length, icon: FileText, color: "text-blue-600", bg: "bg-blue-50" },
+          { label: "Total Dokumen", value: documents.length, icon: FileText, color: "text-blue-600", bg: "bg-blue-50" },
           { label: "Total Chunks", value: totalChunks, icon: Layers, color: "text-violet-600", bg: "bg-violet-50" },
           { label: "Total Size", value: formatBytes(totalSize), icon: HardDrive, color: "text-emerald-600", bg: "bg-emerald-50" },
         ].map((stat, i) => (
@@ -90,7 +111,6 @@ export default function KnowledgeBasePage() {
         ))}
       </div>
 
-      {/* Filters */}
       <div className="bg-white rounded-xl border border-[var(--color-border)] p-4">
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center bg-[var(--color-bg)] rounded-lg p-1">
@@ -123,7 +143,6 @@ export default function KnowledgeBasePage() {
         </div>
       </div>
 
-      {/* Document List */}
       <div className="bg-white rounded-xl border border-[var(--color-border)] overflow-hidden">
         <table className="w-full">
           <thead>
@@ -156,7 +175,7 @@ export default function KnowledgeBasePage() {
                     </span>
                   </td>
                   <td className="py-3 px-4 text-center">
-                    <span className="text-sm text-[var(--color-text)]">{formatBytes(doc.fileSize)}</span>
+                    <span className="text-sm text-[var(--color-text)]">{formatBytes(doc.fileSize || 0)}</span>
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span className="text-sm font-semibold text-[var(--color-text)]">{doc.chunkCount ?? "-"}</span>
@@ -186,26 +205,13 @@ export default function KnowledgeBasePage() {
               <tr>
                 <td colSpan={7} className="py-16 text-center">
                   <BookOpen className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-                  <p className="text-sm text-[var(--color-muted)]">Tidak ada dokumen</p>
+                  <p className="text-sm text-[var(--color-muted)]">Tidak ada dokumen. Upload dokumen pertama Anda.</p>
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
-
-      {/* Warning for FAILED docs */}
-      {mockDocuments.some((d) => d.status === "FAILED") && (
-        <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-amber-800">Dokumen gagal diproses</p>
-            <p className="text-xs text-amber-600 mt-0.5">
-              Beberapa dokumen gagal di-indexing. Silakan upload ulang atau hubungi admin.
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

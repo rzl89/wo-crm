@@ -222,3 +222,71 @@ export async function getRecentActivities() {
     return [];
   }
 }
+
+export async function getKnowledgeDocuments() {
+  try {
+    const tenantId = await getTenantId();
+    if (!tenantId) throw new Error("No tenant");
+
+    const docs = await prisma.knowledgeDocument.findMany({
+      where: { tenantId },
+      orderBy: { uploadedAt: "desc" }
+    });
+
+    return docs.map((d: any) => ({
+      id: d.id,
+      fileName: d.fileName,
+      fileType: d.fileType,
+      fileSize: d.fileSize,
+      status: d.status,
+      chunkCount: d.chunkCount,
+      uploadedAt: d.uploadedAt.toISOString(),
+      indexedAt: d.indexedAt?.toISOString() || null,
+    }));
+  } catch (error) {
+    console.error("Failed to get knowledge documents:", error);
+    return [];
+  }
+}
+
+export async function getFormSubmissions() {
+  try {
+    const tenantId = await getTenantId();
+    if (!tenantId) throw new Error("No tenant");
+
+    const forms = await prisma.formSubmission.findMany({
+      where: { tenantId },
+      orderBy: { submittedAt: "desc" }
+    });
+
+    return forms.map((f: any) => ({
+      id: f.id,
+      phoneNumber: f.phoneNumber,
+      contactName: f.contactName,
+      eventType: f.eventType,
+      eventDate: f.eventDate?.toISOString() || null,
+      location: f.location,
+      venueName: f.venueName,
+      guestCount: f.guestCount,
+      isProcessed: f.isProcessed,
+      submittedAt: f.submittedAt.toISOString(),
+    }));
+  } catch (error) {
+    console.error("Failed to get form submissions:", error);
+    return [];
+  }
+}
+
+export async function getMeetingCount() {
+  try {
+    const tenantId = await getTenantId();
+    if (!tenantId) return 0;
+
+    return await prisma.lead.count({
+      where: { tenantId, pipelineStage: "MEETING" }
+    });
+  } catch (error) {
+    console.error("Failed to get meeting count:", error);
+    return 0;
+  }
+}

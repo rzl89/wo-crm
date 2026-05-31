@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import type { Stage } from "@prisma/client";
-import { formatPhone, relativeTime } from "@/lib/utils";
 import { StageBadge } from "@/components/shared/Badges";
+import { formatPhone, relativeTime } from "@/lib/utils";
 import { getLeads } from "@/app/actions/crm";
 import Link from "next/link";
 import {
@@ -17,7 +16,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
+  Loader2,
 } from "lucide-react";
+
+type Stage = "LEADS" | "MEETING" | "CLOSING";
 
 const TABS: { label: string; value: Stage | "ALL" }[] = [
   { label: "Semua", value: "ALL" },
@@ -34,27 +36,31 @@ export default function LeadsPage() {
   const [page, setPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [leadsData, setLeadsData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Ambil data asli dari Supabase via Server Action
-    getLeads().then((data) => {
-      setLeadsData(data as any[]);
-    });
+    setLoading(true);
+    getLeads()
+      .then((data) => {
+        setLeadsData(data as any[]);
+      })
+      .catch(() => {
+        setLeadsData([]);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = useMemo(() => {
     let data = [...leadsData];
     if (activeTab !== "ALL") {
-      // Note: we might need to handle mapped DB fields (e.g., pipelineStage -> status)
-      data = data.filter((l) => (l.pipelineStage || l.status) === activeTab);
+      data = data.filter((l) => (l.status || l.pipelineStage) === activeTab);
     }
     if (search.trim()) {
       const q = search.toLowerCase();
       data = data.filter(
         (l) =>
-          (l.contactName || l.name || "").toLowerCase().includes(q) ||
-          (l.phoneNumber || l.phone || "").includes(q) ||
-          (l.location || "").toLowerCase().includes(q)
+          (l.name || "").toLowerCase().includes(q) ||
+          (l.phone || "").includes(q)
       );
     }
     return data;
@@ -63,34 +69,16 @@ export default function LeadsPage() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const handleExportCSV = () => {
-    if (leadsData.length === 0) return;
-    const headers = ["Name", "Phone", "Event Type", "Event Date", "Location", "Venue", "Guests", "Stage", "Last Active"];
-    const rows = leadsData.map(lead => [
-      lead.name || lead.contactName || "",
-      lead.phone || lead.phoneNumber || "",
-      lead.eventType || "",
-      lead.eventDate ? new Date(lead.eventDate).toLocaleDateString("id-ID") : "",
-      lead.location || "",
-      lead.venueName || "",
-      lead.guestCount?.toString() || "",
-      lead.status || lead.pipelineStage || "",
-      lead.lastActive || lead.lastInteraction || ""
-    ]);
-    const csvContent = [headers.join(","), ...rows.map(r => r.map(v => `"${v}"`).join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "leads_export.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="w-8 h-8 text-[var(--color-muted)] animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold text-[var(--color-text)]">
@@ -100,22 +88,20 @@ export default function LeadsPage() {
             Kelola semua prospek dan pelanggan Anda
           </p>
         </div>
-        <button onClick={handleExportCSV} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-[var(--color-border)] text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+        <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-[var(--color-border)] text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
           <Download className="w-4 h-4" />
           Export CSV
         </button>
       </div>
 
-      {/* Filters */}
       <div className="bg-white rounded-xl border border-[var(--color-border)] p-4">
         <div className="flex items-center gap-4 flex-wrap">
-          {/* Tab Filters */}
           <div className="flex items-center bg-[var(--color-bg)] rounded-lg p-1">
             {TABS.map((tab) => {
               const count =
                 tab.value === "ALL"
                   ? leadsData.length
-                  : leadsData.filter((l) => (l.pipelineStage || l.status) === tab.value).length;
+                  : leadsData.filter((l) => (l.status || l.pipelineStage) === tab.value).length;
               return (
                 <button
                   key={tab.value}
@@ -136,7 +122,6 @@ export default function LeadsPage() {
             })}
           </div>
 
-          {/* Search */}
           <div className="flex-1 min-w-[240px]">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)]" />
@@ -147,23 +132,19 @@ export default function LeadsPage() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                placeholder="Cari nama, nomor, atau lokasi..."
+                placeholder="Cari nama atau nomor..."
                 className="w-full pl-10 pr-4 py-2 text-sm bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/20 focus:border-[var(--color-primary-500)] transition-all"
               />
             </div>
           </div>
 
-          <button
-            onClick={() => alert("Fitur Filter Lanjutan akan segera hadir")}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-all"
-          >
+          <button className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)] rounded-lg hover:bg-gray-50 transition-all">
             <Filter className="w-4 h-4" />
             Filter Lanjutan
           </button>
         </div>
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-xl border border-[var(--color-border)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -211,7 +192,7 @@ export default function LeadsPage() {
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[var(--color-primary-500)] to-[var(--color-primary-700)] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                        {(lead.contactName || lead.name || "UN")
+                        {(lead.name || "UN")
                           .split(" ")
                           .map((n: string) => n[0])
                           .join("")
@@ -219,10 +200,10 @@ export default function LeadsPage() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-[var(--color-text)]">
-                          {lead.contactName || lead.name}
+                          {lead.name}
                         </p>
                         <p className="text-xs text-[var(--color-muted)]">
-                          {formatPhone(lead.phoneNumber || lead.phone || "")}
+                          {formatPhone(lead.phone || "")}
                         </p>
                       </div>
                     </div>
@@ -257,11 +238,11 @@ export default function LeadsPage() {
                     </span>
                   </td>
                   <td className="py-3 px-4 text-center">
-                    <StageBadge stage={lead.pipelineStage || lead.status} />
+                    <StageBadge stage={lead.status || "LEADS"} />
                   </td>
                   <td className="py-3 px-4">
                     <span className="text-xs text-[var(--color-muted)]">
-                      {relativeTime(lead.lastInteraction || lead.lastActive)}
+                      {relativeTime(lead.lastActive)}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-center">
@@ -282,17 +263,17 @@ export default function LeadsPage() {
                             <Eye className="w-4 h-4" />
                             Lihat Detail
                           </Link>
-                          <Link href={`/conversations?leadId=${lead.id}`} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors">
+                          <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors">
                             <MessageSquare className="w-4 h-4" />
                             Buka Chat
-                          </Link>
+                          </button>
                         </div>
                       )}
                     </div>
                   </td>
                 </tr>
               ))}
-              {paginated.length === 0 && (
+              {paginated.length === 0 && !loading && (
                 <tr>
                   <td colSpan={8} className="py-16 text-center">
                     <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
@@ -306,7 +287,6 @@ export default function LeadsPage() {
           </table>
         </div>
 
-        {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--color-border)] bg-[var(--color-bg)]">
             <p className="text-xs text-[var(--color-muted)]">

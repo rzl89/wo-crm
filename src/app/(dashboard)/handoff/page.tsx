@@ -1,6 +1,6 @@
 "use client";
 
-import { mockConversations } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
 import { formatPhone, getInitials } from "@/lib/utils";
 import { ConvStatusBadge } from "@/components/shared/Badges";
 import { getConversations } from "@/app/actions/crm";
@@ -10,24 +10,34 @@ import {
   Clock,
   MessageSquare,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
-import { useState, useEffect } from "react";
 
 export default function HandoffPage() {
-  const [conversationsData, setConversationsData] = useState<any[]>(mockConversations);
+  const [conversationsData, setConversationsData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getConversations().then((data) => {
-      setConversationsData(data as any[]);
-    });
+    setLoading(true);
+    getConversations()
+      .then((data) => setConversationsData(data as any[]))
+      .catch(() => setConversationsData([]))
+      .finally(() => setLoading(false));
   }, []);
 
   const waiting = conversationsData.filter((c) => c.status === "WAITING_CS");
   const resolved = conversationsData.filter((c) => c.status === "RESOLVED");
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="w-8 h-8 text-[var(--color-muted)] animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold text-[var(--color-text)]">
@@ -43,7 +53,6 @@ export default function HandoffPage() {
         </div>
       </div>
 
-      {/* Waiting Queue */}
       {waiting.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {waiting.map((conv) => (
@@ -54,7 +63,7 @@ export default function HandoffPage() {
         <div className="bg-white rounded-xl border border-[var(--color-border)] p-12 text-center">
           <CheckCircle2 className="w-14 h-14 text-emerald-200 mx-auto mb-3" />
           <h3 className="font-display text-lg font-bold text-[var(--color-text)]">
-            Semua Terlayani! 🎉
+            Semua Terlayani!
           </h3>
           <p className="text-sm text-[var(--color-muted)] mt-1">
             Tidak ada customer yang menunggu saat ini
@@ -62,34 +71,31 @@ export default function HandoffPage() {
         </div>
       )}
 
-      {/* Resolved Today */}
       {resolved.length > 0 && (
         <div className="bg-white rounded-xl border border-[var(--color-border)] p-6">
           <h2 className="font-display text-lg font-bold text-[var(--color-text)] mb-4">
             Selesai Hari Ini
           </h2>
           <div className="space-y-3">
-            {resolved.map((conv) => {
-              const contactName = conv.name || conv.lead?.contactName || "Unknown";
-              return (
+            {resolved.map((conv) => (
               <div
                 key={conv.id}
                 className="flex items-center gap-4 p-3 rounded-lg bg-[var(--color-bg)]"
               >
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center text-white text-xs font-bold">
-                  {getInitials(contactName)}
+                  {getInitials(conv.name || "Unknown")}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-[var(--color-text)]">
-                    {contactName}
+                    {conv.name}
                   </p>
                   <p className="text-xs text-[var(--color-muted)]">
-                    Ditangani oleh: {conv.assignedTo || "—"}
+                    Ditangani oleh: —
                   </p>
                 </div>
                 <ConvStatusBadge status={conv.status} />
               </div>
-            )})}
+            ))}
           </div>
         </div>
       )}
@@ -101,7 +107,7 @@ function WaitingCard({ conv }: { conv: any }) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    const start = new Date(conv.time || conv.lastMessageAt).getTime();
+    const start = new Date(conv.time || conv.lastMessageAt || Date.now()).getTime();
     if (isNaN(start)) return;
     const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
     tick();
@@ -119,8 +125,7 @@ function WaitingCard({ conv }: { conv: any }) {
   };
 
   const messages = conv.messages || [];
-  const contactName = conv.name || conv.lead?.contactName || "Unknown";
-  const phoneNumber = conv.phone || conv.lead?.phoneNumber || "";
+  const phoneNumber = conv.phone || "";
 
   return (
     <div className="bg-white rounded-xl border-2 border-red-200 p-5 card-hover relative overflow-hidden">
@@ -129,7 +134,7 @@ function WaitingCard({ conv }: { conv: any }) {
       <div className="flex items-start gap-4">
         <div className="relative">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center text-white text-sm font-bold">
-            {getInitials(contactName)}
+            {getInitials(conv.name || "Unknown")}
           </div>
           <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center badge-bounce">
             <Headphones className="w-3 h-3 text-white" />
@@ -140,7 +145,7 @@ function WaitingCard({ conv }: { conv: any }) {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-base font-bold text-[var(--color-text)]">
-                {contactName}
+                {conv.name}
               </p>
               <p className="text-xs text-[var(--color-muted)]">
                 {formatPhone(phoneNumber)}
@@ -154,18 +159,16 @@ function WaitingCard({ conv }: { conv: any }) {
             </div>
           </div>
 
-          {/* Last message preview */}
           <div className="mt-3 p-3 bg-red-50/50 rounded-lg border border-red-100">
             <p className="text-xs text-red-600 font-semibold mb-1 flex items-center gap-1">
               <MessageSquare className="w-3 h-3" />
-              Pesan terakhir sebelum CS1:
+              Pesan terakhir:
             </p>
             <p className="text-sm text-[var(--color-text)] line-clamp-2">
-              {messages[messages.length - 2]?.content || "—"}
+              {messages[messages.length - 1]?.content || conv.lastMessage || "—"}
             </p>
           </div>
 
-          {/* Action */}
           <button className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg transition-colors shadow-lg shadow-red-500/20">
             <UserCheck className="w-4 h-4" />
             Ambil Alih Sekarang

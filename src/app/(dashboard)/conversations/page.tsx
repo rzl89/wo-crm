@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { mockConversations, type ConvStatus } from "@/lib/mock-data";
 import { formatPhone, relativeTime, getInitials } from "@/lib/utils";
 import { StageBadge, ConvStatusBadge } from "@/components/shared/Badges";
 import { getConversations } from "@/app/actions/crm";
@@ -19,7 +18,10 @@ import {
   CheckCircle2,
   MessageSquare,
   Smile,
+  Loader2,
 } from "lucide-react";
+
+type ConvStatus = "AI_HANDLING" | "WAITING_CS" | "CS_HANDLING" | "RESOLVED";
 
 const CONV_TABS: { label: string; icon: string; value: ConvStatus | "ALL" }[] = [
   { label: "Semua", icon: "💬", value: "ALL" },
@@ -33,27 +35,30 @@ export default function ConversationsPage() {
   const [selectedId, setSelectedId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [newMessage, setNewMessage] = useState("");
-  const [conversationsData, setConversationsData] = useState<any[]>(mockConversations);
+  const [conversationsData, setConversationsData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    getConversations().then((data) => {
-      setConversationsData(data as any[]);
-      if (data.length > 0 && !selectedId) {
-        setSelectedId(data[0].id);
-      }
-    });
+    setLoading(true);
+    getConversations()
+      .then((data) => {
+        setConversationsData(data as any[]);
+        if (data.length > 0 && !selectedId) {
+          setSelectedId(data[0].id);
+        }
+      })
+      .catch(() => setConversationsData([]))
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = conversationsData.filter((c) => {
     if (activeTab !== "ALL" && c.status !== activeTab) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
-      const contactName = c.name || c.lead?.contactName || "";
-      const phoneNumber = c.phone || c.lead?.phoneNumber || "";
       return (
-        contactName.toLowerCase().includes(q) ||
-        phoneNumber.includes(q)
+        (c.name || "").toLowerCase().includes(q) ||
+        (c.phone || "").includes(q)
       );
     }
     return true;
@@ -65,17 +70,22 @@ export default function ConversationsPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [selectedId, selected?.messages?.length]);
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="w-8 h-8 text-[var(--color-muted)] animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="animate-fade-in" style={{ height: "calc(100vh - var(--header-height) - 48px)" }}>
       <div className="flex h-full bg-white rounded-xl border border-[var(--color-border)] overflow-hidden">
-        {/* LEFT: Conversation List */}
         <div className="w-[340px] border-r border-[var(--color-border)] flex flex-col flex-shrink-0">
-          {/* Header */}
           <div className="p-4 border-b border-[var(--color-border)]">
             <h2 className="font-display text-lg font-bold text-[var(--color-text)] mb-3">
               Percakapan
             </h2>
-            {/* Tabs */}
             <div className="flex items-center gap-1 mb-3">
               {CONV_TABS.map((tab) => {
                 const count =
@@ -98,7 +108,6 @@ export default function ConversationsPage() {
                 );
               })}
             </div>
-            {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--color-muted)]" />
               <input
@@ -111,11 +120,8 @@ export default function ConversationsPage() {
             </div>
           </div>
 
-          {/* List */}
           <div className="flex-1 overflow-y-auto">
-            {filtered.map((conv) => {
-              const contactName = conv.name || conv.lead?.contactName || "Unknown";
-              return (
+            {filtered.map((conv) => (
               <button
                 key={conv.id}
                 onClick={() => setSelectedId(conv.id)}
@@ -125,10 +131,9 @@ export default function ConversationsPage() {
                     : "hover:bg-[var(--color-bg)]"
                 }`}
               >
-                {/* Avatar */}
                 <div className="relative flex-shrink-0">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-primary-500)] to-[var(--color-primary-700)] flex items-center justify-center text-white text-xs font-bold">
-                    {getInitials(contactName)}
+                    {getInitials(conv.name || "Unknown")}
                   </div>
                   {conv.status === "WAITING_CS" && (
                     <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white badge-bounce" />
@@ -138,26 +143,26 @@ export default function ConversationsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-[var(--color-text)] truncate">
-                      {contactName}
+                      {conv.name}
                     </p>
                     <span className="text-[10px] text-[var(--color-muted)] flex-shrink-0">
-                      {relativeTime(conv.time || conv.lastMessageAt)}
+                      {relativeTime(conv.time)}
                     </span>
                   </div>
                   <p className="text-xs text-[var(--color-muted)] truncate mt-0.5">
-                    {conv.lastMessage || conv.lastMessagePreview}
+                    {conv.lastMessage}
                   </p>
                   <div className="flex items-center justify-between mt-1.5">
                     <ConvStatusBadge status={conv.status} />
-                    {(conv.unread || conv.unreadCount) > 0 && (
+                    {conv.unread > 0 && (
                       <span className="min-w-[18px] h-[18px] bg-[var(--color-primary-600)] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
-                        {conv.unread || conv.unreadCount}
+                        {conv.unread}
                       </span>
                     )}
                   </div>
                 </div>
               </button>
-            )})}
+            ))}
             {filtered.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12">
                 <MessageSquare className="w-10 h-10 text-gray-200 mb-2" />
@@ -167,31 +172,27 @@ export default function ConversationsPage() {
           </div>
         </div>
 
-        {/* CENTER: Chat Panel */}
         {selected ? (
           <>
             <div className="flex-1 flex flex-col min-w-0">
-              {/* Chat header */}
               <div className="px-5 py-3 border-b border-[var(--color-border)] flex items-center justify-between bg-white">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[var(--color-primary-500)] to-[var(--color-primary-700)] flex items-center justify-center text-white text-xs font-bold">
-                    {getInitials(selected.name || selected.lead?.contactName || "")}
+                    {getInitials(selected.name || "")}
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-[var(--color-text)]">
-                      {selected.name || selected.lead?.contactName}
+                      {selected.name}
                     </p>
                     <p className="text-[11px] text-[var(--color-muted)]">
-                      {formatPhone(selected.phone || selected.lead?.phoneNumber || "")}
+                      {formatPhone(selected.phone || "")}
                     </p>
                   </div>
                 </div>
                 <ConvStatusBadge status={selected.status} />
               </div>
 
-              {/* Messages */}
               <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[#fafaf7]">
-                {/* Date separator */}
                 <div className="flex items-center gap-3 my-2">
                   <div className="flex-1 h-px bg-[var(--color-border)]" />
                   <span className="text-[10px] text-[var(--color-muted)] px-2 py-0.5 bg-white rounded-full border border-[var(--color-border)]">
@@ -232,7 +233,6 @@ export default function ConversationsPage() {
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Input bar */}
               <div className="px-4 py-3 border-t border-[var(--color-border)] bg-white">
                 <div className="flex items-center gap-2">
                   <button className="p-2 rounded-lg hover:bg-[var(--color-bg)] transition-colors">
@@ -263,28 +263,27 @@ export default function ConversationsPage() {
               </div>
             </div>
 
-            {/* RIGHT: Info Panel */}
             <div className="w-[280px] border-l border-[var(--color-border)] flex flex-col flex-shrink-0 bg-white">
               <div className="p-5 border-b border-[var(--color-border)] text-center">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--color-primary-500)] to-[var(--color-primary-800)] flex items-center justify-center text-white text-xl font-bold mx-auto shadow-lg">
-                  {getInitials(selected.name || selected.lead?.contactName || "")}
+                  {getInitials(selected.name || "")}
                 </div>
                 <h3 className="font-display text-base font-bold text-[var(--color-text)] mt-3">
-                  {selected.name || selected.lead?.contactName}
+                  {selected.name}
                 </h3>
                 <p className="text-xs text-[var(--color-muted)] mt-1">
-                  {formatPhone(selected.phone || selected.lead?.phoneNumber || "")}
+                  {formatPhone(selected.phone || "")}
                 </p>
                 <div className="mt-3">
-                  <StageBadge stage={selected.lead?.pipelineStage || "LEADS"} size="md" />
+                  <StageBadge stage="LEADS" size="md" />
                 </div>
               </div>
 
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
                 {[
-                  { icon: Calendar, label: "Tanggal Acara", value: (selected.lead?.eventDate) ? new Date(selected.lead.eventDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "-" },
-                  { icon: MapPin, label: "Lokasi", value: selected.lead?.location || "-" },
-                  { icon: Users, label: "Tamu", value: `${selected.lead?.guestCount || 0} orang` },
+                  { icon: Calendar, label: "Tanggal Acara", value: "-" },
+                  { icon: MapPin, label: "Lokasi", value: "-" },
+                  { icon: Users, label: "Tamu", value: "0 orang" },
                 ].map((item, i) => (
                   <div key={i} className="flex items-start gap-2.5">
                     <item.icon className="w-4 h-4 text-[var(--color-muted)] mt-0.5" />
@@ -296,7 +295,6 @@ export default function ConversationsPage() {
                 ))}
               </div>
 
-              {/* Action Buttons */}
               <div className="p-4 border-t border-[var(--color-border)] space-y-2">
                 {selected.status === "AI_HANDLING" && (
                   <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">
